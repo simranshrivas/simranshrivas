@@ -1,0 +1,107 @@
+Set Up the Environment:
+
+Use Poetry for dependency management and packaging.
+
+Initialize a new Poetry project.
+
+bash
+
+poetry add requests pandas
+# fetch_papers/module.py
+
+import requests
+import pandas as pd
+from typing import List, Dict
+
+PUBMED_API_URL = "https://api.ncbi.nlm.nih.gov/lit/ctxp/v1/pubmed/"
+
+def fetch_papers(query: str) -> List[Dict]:
+    response = requests.get(f"{PUBMED_API_URL}?query={query}")
+    response.raise_for_status()
+    return response.json()['records']
+
+def filter_non_academic_authors(authors: List[Dict]) -> List[Dict]:
+    non_academic = []
+    for author in authors:
+        if any(company in author['affiliation'] for company in ['Pharma', 'Biotech']):
+            non_academic.append(author)
+    return non_academic
+
+def fetch_and_filter_papers(query: str) -> pd.DataFrame:
+    papers = fetch_papers(query)
+    filtered_papers = []
+    for paper in papers:
+        non_academic_authors = filter_non_academic_authors(paper['authors'])
+        if non_academic_authors:
+            filtered_papers.append({
+                'PubmedID': paper['uid'],
+                'Title': paper['title'],
+                'Publication Date': paper['pubdate'],
+                'Non-academic Author(s)': ', '.join([author['name'] for author in non_academic_authors]),
+                'Company Affiliation(s)': ', '.join([author['affiliation'] for author in non_academic_authors]),
+                'Corresponding Author Email': paper.get('correspondence', {}).get('email', '')
+            })
+    return pd.DataFrame(filtered_papers)
+    Create the Command Line Program:
+
+Build the CLI using argparse and integrate with the module.
+
+python
+# fetch_papers/cli.py
+
+import argparse
+from .module import fetch_and_filter_papers
+
+def main():
+    parser = argparse.ArgumentParser(description="Fetch research papers from PubMed.")
+    parser.add_argument('query', type=str, help='Query string for PubMed.')
+    parser.add_argument('-f', '--file', type=str, help='Filename to save the results.')
+    parser.add_argument('-d', '--debug', action='store_true', help='Print debug information.')
+
+    args = parser.parse_args()
+
+    if args.debug:
+        print(f"Query: {args.query}")
+
+    papers_df = fetch_and_filter_papers(args.query)
+    
+    if args.file:
+        papers_df.to_csv(args.file, index=False)
+        print(f"Results saved to {args.file}")
+    else:
+        print(papers_df)
+
+if __name__ == "__main__":
+    main()
+Set Up Version Control:
+
+Initialize a Git repository and push the code to GitHub.
+
+bash
+git init
+git add .
+git commit -m "Initial commit"
+git remote add origin <your-github-repo-url>
+git push -u origin master
+Documentation:
+                                                     Create a README.md file with installation and usage instruction 
+
+1. Clone the repository:
+   ```bash
+   git clone <your-github-repo-url>
+   cd fetch_papers
+Install dependencies using Poetry:
+
+bash
+poetry install
+Usage
+Run the command line program:
+
+bash
+poetry run python fetch_papers/cli.py "cancer research" -f results.csv -d
+Tools Used
+Requests
+
+Pandas
+
+PubMed API
